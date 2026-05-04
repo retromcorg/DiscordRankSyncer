@@ -24,10 +24,11 @@ public class DiscordRankSyncer extends JavaPlugin {
         log = this.getServer().getLogger();
         pdf = this.getDescription();
         plugin = this;
+
         log.info("[" + pdf.getName() + "] Is loading, Version: " + pdf.getVersion() + " | Bukkit: " + Bukkit.getServer().getVersion());
-        //Enabling
+
         PluginManager pm = Bukkit.getServer().getPluginManager();
-        if (pm.getPlugin("DiscordCore") == null) {
+        if (pm.getPlugin("DiscordCore") == null || !pm.getPlugin("DiscordCore").isEnabled()) {
             log.info("}---------------ERROR---------------{");
             log.info("DiscordRankSyncer Requires Discord Core");
             log.info("Download it at: https://github.com/RhysB/Discord-Bot-Core");
@@ -35,7 +36,8 @@ public class DiscordRankSyncer extends JavaPlugin {
             pm.disablePlugin(this);
             return;
         }
-        if (pm.getPlugin("DiscordAuthentication") == null) {
+
+        if (pm.getPlugin("DiscordAuthentication") == null || !pm.getPlugin("DiscordAuthentication").isEnabled()) {
             log.info("}---------------ERROR---------------{");
             log.info("DiscordRankSyncer Requires DiscordAuthentication");
             log.info("}---------------ERROR---------------{");
@@ -48,19 +50,24 @@ public class DiscordRankSyncer extends JavaPlugin {
         discordRankSyncerDatastore = new DiscordRankSyncerDatastore(plugin);
 
         final DiscordRankSyncerPlayerListener discordRankSyncerPlayerListener = new DiscordRankSyncerPlayerListener(plugin);
-        getServer().getPluginManager().registerEvent(Event.Type.PLAYER_JOIN, discordRankSyncerPlayerListener, Event.Priority.Monitor, this);
-
-
+        getServer().getPluginManager().registerEvents(discordRankSyncerPlayerListener, this);
+//        getServer().getPluginManager().registerEvent(Event.Type.CUSTOM_EVENT, discordRankSyncerPlayerListener, Event.Priority.Normal, this);
     }
 
     @Override
     public void onDisable() {
-        discordRankSyncerDatastore.saveConfig();
+//        discordRankSyncerDatastore.saveConfig();
         log.info("[" + pdf.getName() + "] Has Been Disabled");
     }
 
     public void logger(Level level, String message) {
         log.log(level, "[" + pdf.getName() + "] " + message);
+    }
+
+    public void debugLogger(Level info, String message) {
+        if (discordRankSyncerDatastore.getDebugMode().get()) {
+            Bukkit.getServer().getLogger().log(info, "[" + pdf.getName() + "-DEBUG] " + message);
+        }
     }
 
     public DiscordAuthentication getDiscordAuthCore() {
