@@ -18,6 +18,7 @@ public class DiscordRankSyncer extends JavaPlugin {
     public DiscordCore discord;
     private DiscordAuthentication discordAuthCore;
     private DiscordRankSyncerDatastore discordRankSyncerDatastore;
+    private RetroBridgeAccess retroBridgeAccess;
 
     @Override
     public void onEnable() {
@@ -46,6 +47,15 @@ public class DiscordRankSyncer extends JavaPlugin {
         }
         discord = (DiscordCore) getServer().getPluginManager().getPlugin("DiscordCore");
         discordAuthCore = (DiscordAuthentication) Bukkit.getServer().getPluginManager().getPlugin("DiscordAuthentication");
+        retroBridgeAccess = new RetroBridgeAccess();
+
+        if (!retroBridgeAccess.isAvailable() || retroBridgeAccess.getPermissionBridge() == null) {
+            log.info("}---------------ERROR---------------{");
+            log.info("DiscordRankSyncer Requires RetroBridge with an active permissions bridge");
+            log.info("}---------------ERROR---------------{");
+            pm.disablePlugin(this);
+            return;
+        }
 
         discordRankSyncerDatastore = new DiscordRankSyncerDatastore(plugin);
 
@@ -80,5 +90,9 @@ public class DiscordRankSyncer extends JavaPlugin {
 
     public DiscordCore getDiscord() {
         return discord;
+    }
+
+    public RetroBridgeAccess getRetroBridgeAccess() {
+        return retroBridgeAccess;
     }
 }

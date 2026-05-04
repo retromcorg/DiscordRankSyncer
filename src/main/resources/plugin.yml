@@ -2,6 +2,7 @@ name: DiscordRankSyncer
 main: com.johnymuffin.beta.DiscordRankSyncer.DiscordRankSyncer
 author: JohnyMuffin
 version: ${project.version}
-softdepend:
+depend:
+  - RetroBridge
   - DiscordCore
   - DiscordAuthentication

@@ -4,8 +4,6 @@ import com.johnymuffin.beta.discordauth.DiscordAuthentication;
 import com.johnymuffin.beta.discordauth.events.DiscordAuthenticationLinkEvent;
 import com.johnymuffin.beta.discordauth.events.DiscordAuthenticationUnlinkEvent;
 import com.johnymuffin.discordcore.DiscordCore;
-import com.johnymuffin.jperms.beta.JohnyPerms;
-import com.johnymuffin.jperms.beta.JohnyPermsAPI;
 import com.projectposeidon.api.PoseidonUUID;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -14,6 +12,7 @@ import org.bukkit.event.CustomEventListener;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.retromc.retrobridge.bridge.permission.PermissionBridge;
 
 import java.util.HashMap;
 import java.util.UUID;
@@ -21,17 +20,17 @@ import java.util.logging.Level;
 
 public class DiscordRankSyncerPlayerListener extends CustomEventListener {
     private DiscordRankSyncer plugin;
-    private JohnyPermsAPI johnyPermsAPI;
     private DiscordAuthentication discordAuthentication;
     private DiscordCore discordCore;
     private DiscordRankSyncerDatastore discordRankSyncerDatastore;
+    private RetroBridgeAccess retroBridgeAccess;
 
     public DiscordRankSyncerPlayerListener(DiscordRankSyncer plugin) {
         this.plugin = plugin;
-        this.johnyPermsAPI = JohnyPerms.getJPermsAPI();
         this.discordAuthentication = plugin.getDiscordAuthCore();
         this.discordCore = plugin.getDiscord();
         this.discordRankSyncerDatastore = plugin.getDiscordRankSyncerDatastore();
+        this.retroBridgeAccess = plugin.getRetroBridgeAccess();
     }
 
     @EventHandler
@@ -86,9 +85,15 @@ public class DiscordRankSyncerPlayerListener extends CustomEventListener {
         this.discordCore.getDiscordBot().getJda().retrieveUserById(discordID).queue();
 
         final HashMap<String, HashMap<String, String>> rankups = discordRankSyncerDatastore.getRankups();
+        final PermissionBridge permissionBridge = retroBridgeAccess.getPermissionBridge();
 
-        final String[] userGroups = new String[1];
-        userGroups[0] = johnyPermsAPI.getUser(minecraftUUID).getGroup().getName();
+        if (permissionBridge == null) {
+            this.plugin.logger(Level.WARNING, "RetroBridge permissions bridge is unavailable. Failed to sync Discord roles for " + minecraftUUID);
+            return;
+        }
+
+        final String[] userGroups = permissionBridge.getGroups(minecraftUUID);
+        final String primaryGroup = permissionBridge.getPrimaryGroup(minecraftUUID);
 
         String username = PoseidonUUID.getPlayerUsernameFromUUID(minecraftUUID) == null ? "Unknown" : PoseidonUUID.getPlayerUsernameFromUUID(minecraftUUID);
 
@@ -106,7 +111,7 @@ public class DiscordRankSyncerPlayerListener extends CustomEventListener {
                 plugin.debugLogger(Level.INFO, "Checking Rankup for " + username + " in " + guildID + " for " + groupName);
 
                 // Check if user has correct Group
-                if (!isUserInGroup(groupName, userGroups)) {
+                if (!isUserInGroup(groupName, primaryGroup, userGroups)) {
                     plugin.debugLogger(Level.INFO, "User " + username + " doesn't have group " + groupName + ". Skipping rank issue.");
                     continue;
                 }
@@ -189,7 +194,7 @@ public class DiscordRankSyncerPlayerListener extends CustomEventListener {
 
 
 
-    private Boolean isUserInGroup(String groupName, String[] userGroups) {
+    private Boolean isUserInGroup(String groupName, String primaryGroup, String[] userGroups) {
         // Handle the case where groupName is "*", which means any group is accepted.
         if (groupName.equalsIgnoreCase("*")) {
             return true;
@@ -200,10 +205,18 @@ public class DiscordRankSyncerPlayerListener extends CustomEventListener {
 
         // Iterate over each group in groups array.
         for (String group : groups) {
+            String trimmedGroup = group.trim();
+
+            if (primaryGroup != null && trimmedGroup.equalsIgnoreCase(primaryGroup)) {
+                return true;
+            }
+
             // Trim whitespace and check if the group is in userGroups.
-            for (String userGroup : userGroups) {
-                if (group.trim().equalsIgnoreCase(userGroup)) {
-                    return true;
+            if (userGroups != null) {
+                for (String userGroup : userGroups) {
+                    if (trimmedGroup.equalsIgnoreCase(userGroup)) {
+                        return true;
+                    }
                 }
             }
         }
