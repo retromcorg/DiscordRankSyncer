@@ -1,6 +1,8 @@
 package com.johnymuffin.beta.DiscordRankSyncer;
 
 import com.johnymuffin.beta.discordauth.DiscordAuthentication;
+import com.johnymuffin.beta.discordauth.events.DiscordAuthenticationLinkEvent;
+import com.johnymuffin.beta.discordauth.events.DiscordAuthenticationUnlinkEvent;
 import com.johnymuffin.discordcore.DiscordCore;
 import com.johnymuffin.jperms.beta.JohnyPerms;
 import com.johnymuffin.jperms.beta.JohnyPermsAPI;
@@ -8,17 +10,16 @@ import com.projectposeidon.api.PoseidonUUID;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import org.bukkit.event.CustomEventListener;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 
-public class DiscordRankSyncerPlayerListener implements Listener {
+public class DiscordRankSyncerPlayerListener extends CustomEventListener {
     private DiscordRankSyncer plugin;
     private JohnyPermsAPI johnyPermsAPI;
     private DiscordAuthentication discordAuthentication;
@@ -53,23 +54,28 @@ public class DiscordRankSyncerPlayerListener implements Listener {
         syncDiscordProfile(event.getPlayer().getUniqueId(), Long.parseLong(discordAuthentication.getData().getDiscordIDFromUUID(playerUUID)));
     }
 
+    @Override
+    public void onCustomEvent(Event event) {
+        if (event == null) {
+            return;
+        }
 
-//    @Override
-//    public void onCustomEvent(Event event) {
-//        if(event.getEventName().equalsIgnoreCase("DiscordAuthenticationLinkEvent") && event instanceof DiscordAuthenticationLinkEvent) {
-//            DiscordAuthenticationLinkEvent discordEvent = (DiscordAuthenticationLinkEvent) event;
-//
-//            plugin.debugLogger(Level.INFO, "DiscordAuthenticationLinkEvent detected. Syncing Discord Profile for " + discordEvent.getMinecraftUUID() + " and " + discordEvent.getDiscordID());
-//
-//            syncDiscordProfile(discordEvent.getMinecraftUUID(), discordEvent.getDiscordID());
-//        } else if (event.getEventName().equalsIgnoreCase("DiscordAuthenticationUnlinkEvent") && event instanceof DiscordAuthenticationLinkEvent) {
-//            DiscordAuthenticationLinkEvent discordEvent = (DiscordAuthenticationLinkEvent) event;
-//
-//            plugin.debugLogger(Level.INFO, "DiscordAuthenticationUnlinkEvent detected. Removing Discord Ranks for " + discordEvent.getMinecraftUUID() + " and " + discordEvent.getDiscordID());
-//
-//            removeDiscordRanks(discordEvent.getMinecraftUUID(), discordEvent.getDiscordID());
-//        }
-//    }
+        if (event.getEventName().equalsIgnoreCase("DiscordAuthenticationLinkEvent") && event instanceof DiscordAuthenticationLinkEvent) {
+            onDiscordAuthenticationLink((DiscordAuthenticationLinkEvent) event);
+        } else if (event.getEventName().equalsIgnoreCase("DiscordAuthenticationUnlinkEvent") && event instanceof DiscordAuthenticationUnlinkEvent) {
+            onDiscordAuthenticationUnlink((DiscordAuthenticationUnlinkEvent) event);
+        }
+    }
+
+    private void onDiscordAuthenticationLink(DiscordAuthenticationLinkEvent event) {
+        plugin.debugLogger(Level.INFO, "DiscordAuthenticationLinkEvent detected. Syncing Discord Profile for " + event.getMinecraftUUID() + " and " + event.getDiscordID());
+        syncDiscordProfile(event.getMinecraftUUID(), event.getDiscordID());
+    }
+
+    private void onDiscordAuthenticationUnlink(DiscordAuthenticationUnlinkEvent event) {
+        plugin.debugLogger(Level.INFO, "DiscordAuthenticationUnlinkEvent detected. Removing Discord Ranks for " + event.getMinecraftUUID() + " and " + event.getDiscordID());
+        removeDiscordRanks(event.getMinecraftUUID(), event.getDiscordID());
+    }
 
 
     private void syncDiscordProfile(UUID minecraftUUID, long discordID) {
@@ -144,34 +150,38 @@ public class DiscordRankSyncerPlayerListener implements Listener {
     }
 
     private void removeDiscordRanks(UUID minecraftUUID, long discordID) {
+        final String username = PoseidonUUID.getPlayerUsernameFromUUID(minecraftUUID) == null ? minecraftUUID.toString() : PoseidonUUID.getPlayerUsernameFromUUID(minecraftUUID);
+
         // Queue retrieval of the user by their Discord ID
         this.discordCore.getDiscordBot().getJda().retrieveUserById(discordID).queue(user -> {
-            // Retrieve mutual guilds
-            List<Guild> mutualGuilds = user.getMutualGuilds();
+            for (HashMap<String, String> rankup : discordRankSyncerDatastore.getRankups().values()) {
+                final String guildID = rankup.get("guildID");
+                final String roleID = rankup.get("roleID");
 
-            // Delayed task to ensure operations are not running on the main thread
-            //Bukkit.getScheduler().scheduleSyncDelayedTask(this.plugin, () -> {
-                for (Guild guild : mutualGuilds) {
-                    // Retrieve member from guild
-                    guild.retrieveMember(user).queue(member -> {
-                        if (member == null) {
-                            this.plugin.logger(Level.WARNING, "Could not retrieve member from guild.");
-                            return;
-                        }
-
-                        // Remove all roles from the member
-                        List<Role> roles = new ArrayList<>(member.getRoles());
-                        if (!roles.isEmpty()) {
-                            guild.modifyMemberRoles(member, null, roles).queue(
-                                    success -> this.plugin.logger(Level.INFO, "Removed all roles from user " + user.getName() + " in guild " + guild.getName()),
-                                    error -> this.plugin.logger(Level.WARNING, "Failed to remove roles from user " + user.getName() + " in guild " + guild.getName())
-                            );
-                        }
-                    }, error -> {
-                        this.plugin.logger(Level.SEVERE, "Failed to retrieve member for user " + user.getName() + " in guild.");
-                    });
+                Guild guild = this.discordCore.getDiscordBot().getJda().getGuildById(guildID);
+                if (guild == null) {
+                    this.plugin.logger(Level.WARNING, "Guild: " + guildID + " doesn't exist. Failed to remove role " + roleID + " from user " + username);
+                    continue;
                 }
-           // }, 20L * 3); // Delay of 3 seconds to ensure that user data is fetched and processed asynchronously
+
+                Role role = guild.getRoleById(roleID);
+                if (role == null) {
+                    this.plugin.logger(Level.WARNING, "Role: " + roleID + " doesn't exist in guild " + guild.getName() + ". Failed to remove role from user " + username);
+                    continue;
+                }
+
+                guild.retrieveMember(user).queue(member -> {
+                    if (!member.getRoles().contains(role)) {
+                        plugin.debugLogger(Level.INFO, "User " + username + " does not have role " + role.getName() + " in guild " + guild.getName() + ". Skipping removal.");
+                        return;
+                    }
+
+                    guild.removeRoleFromMember(member, role).queue(
+                            success -> this.plugin.logger(Level.INFO, "Removed role " + role.getName() + " from user " + user.getName() + " who is known as " + username + " in-game"),
+                            error -> this.plugin.logger(Level.WARNING, "Failed to remove role " + role.getName() + " from user " + user.getName() + " in guild " + guild.getName())
+                    );
+                }, error -> this.plugin.logger(Level.WARNING, "Failed to retrieve member " + user.getName() + " from guild " + guild.getName()));
+            }
         }, error -> {
             this.plugin.logger(Level.SEVERE, "Failed to retrieve Discord user with ID " + discordID);
         });

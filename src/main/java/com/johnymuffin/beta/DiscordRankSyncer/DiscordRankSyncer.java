@@ -51,7 +51,7 @@ public class DiscordRankSyncer extends JavaPlugin {
 
         final DiscordRankSyncerPlayerListener discordRankSyncerPlayerListener = new DiscordRankSyncerPlayerListener(plugin);
         getServer().getPluginManager().registerEvents(discordRankSyncerPlayerListener, this);
-//        getServer().getPluginManager().registerEvent(Event.Type.CUSTOM_EVENT, discordRankSyncerPlayerListener, Event.Priority.Normal, this);
+        getServer().getPluginManager().registerEvent(Event.Type.CUSTOM_EVENT, discordRankSyncerPlayerListener, Event.Priority.Normal, this);
     }
 
     @Override
