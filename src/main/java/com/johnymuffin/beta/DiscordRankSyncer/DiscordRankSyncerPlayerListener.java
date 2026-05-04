@@ -1,7 +1,6 @@
 package com.johnymuffin.beta.DiscordRankSyncer;
 
 import com.johnymuffin.beta.discordauth.DiscordAuthentication;
-import com.johnymuffin.beta.discordauth.events.DiscordAuthenticationLinkEvent;
 import com.johnymuffin.discordcore.DiscordCore;
 import com.johnymuffin.jperms.beta.JohnyPerms;
 import com.johnymuffin.jperms.beta.JohnyPermsAPI;
@@ -9,14 +8,9 @@ import com.projectposeidon.api.PoseidonUUID;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.entities.User;
-import org.bukkit.Bukkit;
-import org.bukkit.event.CustomEventListener;
-import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
