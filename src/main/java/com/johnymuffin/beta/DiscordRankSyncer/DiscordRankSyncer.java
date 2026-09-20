@@ -1,12 +1,11 @@
 package com.johnymuffin.beta.DiscordRankSyncer;
 
 import com.johnymuffin.beta.discordauth.DiscordAuthentication;
-import com.johnymuffin.discordcore.DiscordCore;
 import org.bukkit.Bukkit;
-import org.bukkit.event.Event;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.retromc.discordcore.v6.DiscordCorePlugin;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,7 +14,7 @@ public class DiscordRankSyncer extends JavaPlugin {
     private Logger log;
     private PluginDescriptionFile pdf;
     private DiscordRankSyncer plugin;
-    public DiscordCore discord;
+    private DiscordCorePlugin discord;
     private DiscordAuthentication discordAuthCore;
     private DiscordRankSyncerDatastore discordRankSyncerDatastore;
     private RetroBridgeAccess retroBridgeAccess;
@@ -29,10 +28,9 @@ public class DiscordRankSyncer extends JavaPlugin {
         log.info("[" + pdf.getName() + "] Is loading, Version: " + pdf.getVersion() + " | Bukkit: " + Bukkit.getServer().getVersion());
 
         PluginManager pm = Bukkit.getServer().getPluginManager();
-        if (pm.getPlugin("DiscordCore") == null || !pm.getPlugin("DiscordCore").isEnabled()) {
+        if (!(pm.getPlugin("DiscordCore-6") instanceof DiscordCorePlugin) || !pm.getPlugin("DiscordCore-6").isEnabled()) {
             log.info("}---------------ERROR---------------{");
-            log.info("DiscordRankSyncer Requires Discord Core");
-            log.info("Download it at: https://github.com/RhysB/Discord-Bot-Core");
+            log.info("DiscordRankSyncer Requires DiscordCore-6");
             log.info("}---------------ERROR---------------{");
             pm.disablePlugin(this);
             return;
@@ -45,13 +43,14 @@ public class DiscordRankSyncer extends JavaPlugin {
             pm.disablePlugin(this);
             return;
         }
-        discord = (DiscordCore) getServer().getPluginManager().getPlugin("DiscordCore");
+
+        discord = (DiscordCorePlugin) getServer().getPluginManager().getPlugin("DiscordCore-6");
         discordAuthCore = (DiscordAuthentication) Bukkit.getServer().getPluginManager().getPlugin("DiscordAuthentication");
         retroBridgeAccess = new RetroBridgeAccess();
 
-        if (!retroBridgeAccess.isAvailable() || retroBridgeAccess.getPermissionBridge() == null) {
+        if (!retroBridgeAccess.isAvailable()) {
             log.info("}---------------ERROR---------------{");
-            log.info("DiscordRankSyncer Requires RetroBridge with an active permissions bridge");
+            log.info("DiscordRankSyncer Requires RetroBridge");
             log.info("}---------------ERROR---------------{");
             pm.disablePlugin(this);
             return;
@@ -61,7 +60,6 @@ public class DiscordRankSyncer extends JavaPlugin {
 
         final DiscordRankSyncerPlayerListener discordRankSyncerPlayerListener = new DiscordRankSyncerPlayerListener(plugin);
         getServer().getPluginManager().registerEvents(discordRankSyncerPlayerListener, this);
-        getServer().getPluginManager().registerEvent(Event.Type.CUSTOM_EVENT, discordRankSyncerPlayerListener, Event.Priority.Normal, this);
     }
 
     @Override
@@ -88,7 +86,7 @@ public class DiscordRankSyncer extends JavaPlugin {
         return discordRankSyncerDatastore;
     }
 
-    public DiscordCore getDiscord() {
+    public DiscordCorePlugin getDiscord() {
         return discord;
     }
 

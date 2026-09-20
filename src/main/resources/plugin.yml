@@ -4,5 +4,5 @@ author: JohnyMuffin
 version: ${project.version}
 depend:
   - RetroBridge
-  - DiscordCore
+  - DiscordCore-6
   - DiscordAuthentication
